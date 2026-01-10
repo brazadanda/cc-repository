@@ -5,8 +5,19 @@ from datetime import date, timedelta
 st.set_page_config(page_title="Card Optimizer Pro", page_icon="⚖️")
 
 def apply_card_style(card_name):
-    card_colors = {"Customized": "#D32F2F", "Premium": "#4A148C", "Amazon": "#283593", "Costco": "#1B5E20"}
-    bg_color = next((v for k, hex_val in card_colors.items() if k in card_name), "#333333")
+    card_colors = {
+        "Customized": "#D32F2F", 
+        "Premium": "#4A148C", 
+        "Amazon": "#283593", 
+        "Costco": "#1B5E20"
+    }
+    # Find the first color key that exists in the card name
+    bg_color = "#333333" # Default
+    for key, color_code in card_colors.items():
+        if key in card_name:
+            bg_color = color_code
+            break
+
     st.markdown(f"""
         <style>
         .stAlert {{ background: linear-gradient(135deg, {bg_color} 0%, #1A1A1A 160%) !important; border-radius: 15px !important; padding: 20px !important; border: none !important; }}
@@ -33,79 +44,9 @@ ideal_pace_val = (days_elapsed / days_total) * 2500
 st.sidebar.title("Settings")
 app_mode = st.sidebar.toggle("Detailed Strategy Mode", value=True)
 
-if 'purchase_amt' not in st.session_state: st.session_state.purchase_amt = 0.0
+if 'purchase_amt' not in st.session_state: 
+    st.session_state.purchase_amt = 0.0
 
 if app_mode:
     st.subheader("1. Quarterly CCR Cap Spend")
-    ccr_spent = st.slider("Total 5.25% Category Spend ($)", 0, 2500, value=int(st.session_state.get('saved_ccr', ideal_pace_val)), step=50)
-    st.markdown(f'<div class="pace-marker">Target for {today.strftime("%b %d")}: ${ideal_pace_val:.0f} | Days Remaining: {days_left}</div>', unsafe_allow_html=True)
-    st.session_state['saved_ccr'] = ccr_spent
-    cap_rem = 2500.0 - ccr_spent
-    daily_allowance_pre = cap_rem / max(days_left, 1)
-
-    st.subheader("2. New Purchase Amount")
-    c1, c2, c3 = st.columns(3); m1, m2, m3 = st.columns(3)
-    with c1: 
-        if st.button("+$10"): st.session_state.purchase_amt += 10
-    with c2: 
-        if st.button("+$50"): st.session_state.purchase_amt += 50
-    with c3: 
-        if st.button("+$100"): st.session_state.purchase_amt += 100
-    with m1: 
-        if st.button("-$10"): st.session_state.purchase_amt = max(0, st.session_state.purchase_amt - 10)
-    with m2: 
-        if st.button("-$50"): st.session_state.purchase_amt = max(0, st.session_state.purchase_amt - 50)
-    with m3: 
-        if st.button("RESET"): st.session_state.purchase_amt = 0
-    
-    amt = st.number_input("Amount ($)", value=float(st.session_state.purchase_amt), step=1.0)
-    daily_allowance_post = max(0, cap_rem - amt) / max(days_left, 1)
-else:
-    amt, cap_rem, daily_allowance_pre, daily_allowance_post = 0.0, 2500.0, 27.0, 27.0
-
-# --- 4. CATEGORY SELECT ---
-st.title("Card Optimizer")
-category = st.selectbox("Select Purchase Category", [
-    "Online Shopping (General)", 
-    "Amazon.com / Whole Foods", 
-    "Gas Station / Fuel", 
-    "In-Store / Dining / Everything Else"
-])
-st.markdown("---")
-
-# --- 5. ROBUST DECISION ENGINE ---
-def get_robust_decision():
-    if "Online" in category:
-        if cap_rem <= 0: return "BofA Premium Rewards Elite", "2.625%", "Cap exhausted."
-        if amt > 500: return "BofA Premium Rewards Elite", "2.625%", "Protecting cap for smaller daily needs."
-        if daily_allowance_post < 15.0 and daily_allowance_pre > 15.0:
-             return "BofA Premium Rewards Elite", "2.625%", "Spend pace too high; rationing cap."
-        return "BofA Customized Cash Rewards", "5.25%", "Optimal use of quarterly cap."
-
-    if "Amazon" in category: return "Amazon Prime Visa", "5.0%", "Uncapped merchant rate."
-    if "Gas" in category: return "Costco Anywhere Visa", "4.0%", "Dedicated gas rate."
-    return "BofA Premium Rewards Elite", "2.625%+", "Best catch-all rate."
-
-card, rate, reason = get_robust_decision()
-apply_card_style(card)
-st.error(f"{card}")
-
-# --- 6. CONTEXT-AWARE STRATEGY INSIGHT ---
-if app_mode:
-    is_ccr = "Customized Cash" in card
-    total_earned = (min(amt, cap_rem) * 0.0525) if is_ccr else (amt * float(rate.strip('%+'))/100)
-    
-    st.markdown('<div class="insight-box"><div class="insight-title">Strategic Analysis</div><div class="insight-text">', unsafe_allow_html=True)
-    st.write(f"• **Yield:** This card earns **{rate}** (${total_earned:.2f}) cash back.")
-    
-    if is_ccr:
-        days_consumed = amt / max(daily_allowance_pre, 1)
-        st.write(f"• **Rationing:** You have **${daily_allowance_pre:.2f}/day** of high-yield cap remaining.")
-        st.write(f"• **Impact:** This purchase consumes **{days_consumed:.1f} days** of your quarterly budget.")
-    else:
-        st.write("• **Cap Defense:** This transaction **protects** your BofA 5.25% cap for other online purchases.")
-        if "Online" in category and cap_rem > 0:
-            st.write(f"• **Note:** You still have **${cap_rem:.0f}** in the 5.25% bucket for smaller items.")
-            
-    st.write(f"• **Verdict:** {reason}")
-    st.markdown('</div></div>', unsafe_allow_html=True)
+    ccr_spent = st.slider("Total 5.25% Category Spend ($)", 0, 2500, value=int(st.session_state.get('saved_ccr', ideal_pace_val)), step=50
