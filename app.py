@@ -13,28 +13,37 @@ def apply_card_style(card_name):
             break
     st.markdown(f"""
         <style>
+        /* Force columns to stay side-by-side on mobile */
+        [data-testid="column"] {{
+            width: 32% !important;
+            flex: 1 1 32% !important;
+            min-width: 32% !important;
+        }}
+        [data-testid="stHorizontalBlock"] {{
+            flex-direction: row !important;
+            display: flex !important;
+            flex-wrap: nowrap !important;
+        }}
+
         .stAlert {{ background: linear-gradient(135deg, {bg_color} 0%, #1A1A1A 160%) !important; border-radius: 15px !important; padding: 20px !important; border: none !important; }}
         .stAlert p, .stAlert h1, .stAlert h2, .stAlert h3, .stAlert div {{ color: #FFFFFF !important; font-weight: 800 !important; text-transform: uppercase !important; text-align: center !important; }}
         
-        /* THE DARK MODE FIX: Forced Contrast for Buttons */
         .stButton>button {{ 
             width: 100%; 
             border-radius: 8px; 
             height: 3.5em; 
             font-weight: bold; 
-            background-color: #262730 !important; /* Dark Slate */
-            color: #ffffff !important;           /* Forced White Text */
+            background-color: #262730 !important; 
+            color: #ffffff !important;           
             border: 1px solid #464855 !important;
-        }}
-        .stButton>button:hover {{
-            background-color: #464855 !important;
-            border: 1px solid #ffffff !important;
+            font-size: 0.9rem !important; /* Slightly smaller text for grid fit */
+            padding: 0px !important;
         }}
 
-        .insight-box {{ background-color: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e0e0e0; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-        .insight-title {{ font-weight: bold; color: #1a1a1a; font-size: 0.8rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
-        .insight-text {{ color: #444; font-size: 0.85rem; line-height: 1.5; }}
-        .pace-marker {{ color: #888; font-size: 0.75rem; margin-top: -10px; margin-bottom: 15px; font-family: monospace; }}
+        .insight-box {{ background-color: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e0e0e0; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
+        .insight-title {{ font-weight: bold; color: #1a1a1a; font-size: 0.75rem; margin-bottom: 5px; text-transform: uppercase; border-bottom: 1px solid #eee; }}
+        .insight-text {{ color: #444; font-size: 0.8rem; line-height: 1.4; }}
+        .pace-marker {{ color: #888; font-size: 0.7rem; margin-top: -10px; margin-bottom: 10px; font-family: monospace; }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -63,17 +72,20 @@ app_mode = st.sidebar.toggle("Detailed Strategy Mode", value=True)
 
 if app_mode:
     st.subheader("1. Quarterly CCR Cap Spend")
-    ccr_spent = st.slider("Total 5.25% Category Spend ($)", 0, 2500, value=int(st.session_state.get('saved_ccr', ideal_pace_val)), step=50)
-    st.markdown(f'<div class="pace-marker">Pace Target: ${ideal_pace_val:.0f} | Days Left: {days_left}</div>', unsafe_allow_html=True)
+    ccr_spent = st.slider("Total 5.25% Spend ($)", 0, 2500, value=int(st.session_state.get('saved_ccr', ideal_pace_val)), step=50)
+    st.markdown(f'<div class="pace-marker">Target: ${ideal_pace_val:.0f} | Days Left: {days_left}</div>', unsafe_allow_html=True)
     st.session_state['saved_ccr'] = ccr_spent
     cap_rem = 2500.0 - ccr_spent
     daily_allowance_pre = cap_rem / max(days_left, 1)
 
-    st.subheader("2. New Purchase Amount")
-    c1, c2, c3 = st.columns(3); m1, m2, m3 = st.columns(3)
+    st.subheader("2. Purchase Amount")
+    # Row 1: Additions
+    c1, c2, c3 = st.columns(3)
     c1.button("+$10", on_click=update_amt, args=(10,))
     c2.button("+$50", on_click=update_amt, args=(50,))
     c3.button("+$100", on_click=update_amt, args=(100,))
+    # Row 2: Subtractions
+    m1, m2, m3 = st.columns(3)
     m1.button("-$10", on_click=update_amt, args=(-10,))
     m2.button("-$50", on_click=update_amt, args=(-50,))
     m3.button("RESET", on_click=update_amt, args=(0,))
