@@ -15,10 +15,25 @@ def apply_card_style(card_name):
         <style>
         .stAlert {{ background: linear-gradient(135deg, {bg_color} 0%, #1A1A1A 160%) !important; border-radius: 15px !important; padding: 20px !important; border: none !important; }}
         .stAlert p, .stAlert h1, .stAlert h2, .stAlert h3, .stAlert div {{ color: #FFFFFF !important; font-weight: 800 !important; text-transform: uppercase !important; text-align: center !important; }}
+        
+        /* THE DARK MODE FIX: Forced Contrast for Buttons */
+        .stButton>button {{ 
+            width: 100%; 
+            border-radius: 8px; 
+            height: 3.5em; 
+            font-weight: bold; 
+            background-color: #262730 !important; /* Dark Slate */
+            color: #ffffff !important;           /* Forced White Text */
+            border: 1px solid #464855 !important;
+        }}
+        .stButton>button:hover {{
+            background-color: #464855 !important;
+            border: 1px solid #ffffff !important;
+        }}
+
         .insight-box {{ background-color: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e0e0e0; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
         .insight-title {{ font-weight: bold; color: #1a1a1a; font-size: 0.8rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
         .insight-text {{ color: #444; font-size: 0.85rem; line-height: 1.5; }}
-        .stButton>button {{ width: 100%; border-radius: 8px; height: 3.5em; font-weight: bold; background-color: #f0f2f6; border: 1px solid #dcdfe6; }}
         .pace-marker {{ color: #888; font-size: 0.75rem; margin-top: -10px; margin-bottom: 15px; font-family: monospace; }}
         </style>
     """, unsafe_allow_html=True)
@@ -76,23 +91,16 @@ category = st.selectbox("Select Purchase Category", [
 ])
 st.markdown("---")
 
-# --- 6. NEW ROBUST DECISION ENGINE ---
+# --- 6. DECISION ENGINE ---
 def get_robust_decision():
     if "Online" in category:
-        # TIER 1: HARD CAP CHECK
         if amt > cap_rem:
             return "BofA Premium Rewards Elite", "2.625%", "Purchase exceeds remaining 5.25% cap."
-        
-        # TIER 2: PACE PROTECTION (The "4-Day Rule")
-        # If this single purchase eats more than 4 days of your remaining daily budget
         days_impact = amt / max(daily_allowance_pre, 1)
         if days_impact > 4.0 and cap_rem < 1000:
             return "BofA Premium Rewards Elite", "2.625%", f"Rationing: This eats {days_impact:.1f} days of budget."
-
-        # TIER 3: THE FLOOR CHECK
         if daily_allowance_post < 10.0 and daily_allowance_pre > 10.0:
              return "BofA Premium Rewards Elite", "2.625%", "Protecting minimum daily allowance ($10/day)."
-             
         return "BofA Customized Cash Rewards", "5.25%", "Optimal use of remaining cap."
 
     if "Amazon" in category: return "Amazon Prime Visa", "5.0%", "Uncapped merchant rate."
@@ -114,13 +122,11 @@ if app_mode:
     
     st.markdown('<div class="insight-box"><div class="insight-title">Strategic Analysis</div><div class="insight-text">', unsafe_allow_html=True)
     st.write(f"• **Yield:** This card earns **{rate_str}** (${total_earned:.2f}) cash back.")
-    
     if "Online" in category:
-        st.write(f"• **Rationing:** You have **${daily_allowance_pre:.2f}/day** remaining in your 5.25% bucket.")
+        st.write(f"• **Rationing:** You have **${daily_allowance_pre:.2f}/day** remaining.")
         if is_ccr:
             st.write(f"• **Impact:** This purchase consumes **{amt / max(daily_allowance_pre, 1):.1f} days** of budget.")
         else:
             st.write(f"• **Cap Defense:** Using Elite card preserves **${cap_rem:.0f}** for future online buys.")
-            
     st.write(f"• **Verdict:** {reason}")
     st.markdown('</div></div>', unsafe_allow_html=True)
