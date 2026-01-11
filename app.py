@@ -5,7 +5,6 @@ from datetime import date, timedelta
 st.set_page_config(page_title="Card Optimizer Pro", page_icon="⚖️")
 
 def apply_app_styles(card_name):
-    # Dynamic logic for the main Result card ONLY
     card_colors = {"Customized": "#D32F2F", "Premium": "#4A148C", "Amazon": "#283593", "Costco": "#1B5E20"}
     res_bg = "#333333" 
     for key, color_code in card_colors.items():
@@ -15,7 +14,6 @@ def apply_app_styles(card_name):
             
     st.markdown(f"""
         <style>
-        /* Main Result Card: High Contrast & Dynamic */
         .stAlert {{ 
             background: linear-gradient(135deg, {res_bg} 0%, #1A1A1A 160%) !important; 
             border-radius: 15px !important; 
@@ -28,8 +26,6 @@ def apply_app_styles(card_name):
             text-transform: uppercase !important; 
             text-align: center !important; 
         }}
-        
-        /* Neutral Status Plate: Uses Theme Variables for Auto Light/Dark Adaptivity */
         .status-plate {{ 
             background-color: rgba(128, 128, 128, 0.1); 
             border: 1px solid rgba(128, 128, 128, 0.2); 
@@ -50,45 +46,52 @@ def apply_app_styles(card_name):
             font-family: 'Source Code Pro', monospace; 
             line-height: 1.6;
         }}
-        
-        /* Standardized Buttons */
+        .disclaimer {{
+            font-size: 0.65rem;
+            opacity: 0.7;
+            line-height: 1.2;
+            margin-top: 10px;
+        }}
         .stButton>button {{ width: 100%; border-radius: 8px; font-weight: bold; }}
         </style>
     """, unsafe_allow_html=True)
 
+# Formatting Helper: Removes ".00" or extra zeros
+def fmt_pct(val):
+    return f"{val*100:g}%"
+
 # --- 2. SIDEBAR SETTINGS ---
 st.sidebar.title("Settings")
-
-# DEFAULT: Simple Mode (False)
 app_mode = st.sidebar.toggle("Detailed Strategy Mode", value=False)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Preferred Rewards")
 
-# DEFAULT: Platinum Honors (Index 3)
-tier = st.sidebar.selectbox(
-    "Active Tier", 
-    ["None", "Gold", "Platinum", "Plat Honors"], 
-    index=3
-)
+tier_options = ["None", "Gold", "Platinum", "Platinum Honors"]
+tier = st.sidebar.selectbox("Active Tier", tier_options, index=3)
 
-# Multiplier Logic
-multipliers = {"None": 1.0, "Gold": 1.25, "Platinum": 1.50, "Plat Honors": 1.75}
+multipliers = {"None": 1.0, "Gold": 1.25, "Platinum": 1.50, "Platinum Honors": 1.75}
 m = multipliers[tier]
 
 # Rates based on tier
 r_online = 0.03 * m
 r_base = 0.015 * m
-r_travel = 0.02 * m
+r_travel_dining = 0.02 * m
+r_fallback = 0.01 * m 
 
-# NEUTRAL SIDEBAR BOX (Adaptive to light/dark mode)
+# SIDEBAR YIELD PLATE
 st.sidebar.markdown(f"""
     <div class="status-plate">
         <div class="status-header">{tier} Yields</div>
         <div class="status-val">
-            • Online: {r_online*100:.2f}%<br>
-            • Travel: {r_travel*100:.1f}%<br>
-            • Other: {r_base*100:.3f}%
+            • Online Shopping: {fmt_pct(r_online)}<br>
+            • Travel/Dining: {fmt_pct(r_travel_dining)}<br>
+            • Other: {fmt_pct(r_base)}
+        </div>
+        <div class="disclaimer">
+            *Online Shopping rate applies to the first $2,500 of combined choice category/grocery 
+            purchases each quarter. After the cap, yield reverts to {fmt_pct(r_fallback)}. 
+            Travel/Dining rates are uncapped on Premium Rewards cards.
         </div>
     </div>
 """, unsafe_allow_html=True)
@@ -101,7 +104,6 @@ def update_amt(v):
     if v == 0: st.session_state.purchase_amt = 0.0
     else: st.session_state.purchase_amt += float(v)
 
-# Quarterly pacing logic
 today = date.today()
 q_start = date(today.year, ((today.month - 1) // 3) * 3 + 1, 1)
 q_end = (date(today.year, q_start.month + 2, 1) + timedelta(days=32)).replace(day=1) - timedelta(days=1)
@@ -132,13 +134,13 @@ cat = st.selectbox("Category", ["Online Shopping", "Amazon.com", "Gas Station", 
 def decide():
     if "Online" in cat:
         if amt > rem or (app_mode and rem < 500): 
-            return "BofA Premium Rewards Elite", f"{r_base*100:.3f}%", "Cap preservation."
-        return "BofA Customized Cash", f"{r_online*100:.2f}%", "Max category yield."
+            return "BofA Premium Rewards Elite", fmt_pct(r_base), "Cap preservation."
+        return "BofA Customized Cash", fmt_pct(r_online), "Max category yield."
     
-    if "Amazon" in cat: return "Amazon Prime Visa", "5.0%", "Merchant specific."
-    if "Gas" in cat: return "Costco Anywhere Visa", "4.0%", "Uncapped gas."
-    if "Dining" in cat: return "BofA Premium Rewards Elite", f"{r_travel*100:.1f}%", f"{tier} Travel rate."
-    return "BofA Premium Rewards Elite", f"{r_base*100:.3f}%", "Best catch-all."
+    if "Amazon" in cat: return "Amazon Prime Visa", "5%", "Merchant specific."
+    if "Gas" in cat: return "Costco Anywhere Visa", "4%", "Uncapped gas."
+    if "Dining" in cat: return "BofA Premium Rewards Elite", fmt_pct(r_travel_dining), f"{tier} Travel rate."
+    return "BofA Premium Rewards Elite", fmt_pct(r_base), "Best catch-all."
 
 card, rate, reason = decide()
 apply_app_styles(card)
