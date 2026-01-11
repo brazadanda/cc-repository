@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import date, timedelta
 
 # --- 1. CONFIG & STYLING ---
-st.set_page_config(page_title="Card Optimizer Pro", page_icon="⚖️", layout="centered")
+st.set_page_config(page_title="Card Optimizer Pro", page_icon="⚖️")
 
 def apply_card_style(card_name):
     card_colors = {"Customized": "#D32F2F", "Premium": "#4A148C", "Amazon": "#283593", "Costco": "#1B5E20"}
@@ -14,38 +14,39 @@ def apply_card_style(card_name):
     
     st.markdown(f"""
         <style>
-        /* THE NUCLEAR OPTION TO STOP STACKING */
-        div[data-testid="stHorizontalBlock"] {{
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            width: 100% !important;
-        }}
+        /* REVERTED TO STACKED: Optimized for vertical flow */
         
-        div[data-testid="column"] {{
-            width: 31% !important; /* Slightly less than 33 to account for gaps */
-            min-width: 31% !important;
-            flex: 0 0 31% !important;
-        }}
+        /* Reduce gap between Streamlit elements globally */
+        .block-container {{ padding-top: 1rem !important; padding-bottom: 0rem !important; }}
+        [data-testid="stVerticalBlock"] {{ gap: 0.5rem !important; }}
 
-        /* Button Styling for small screens */
         .stButton>button {{ 
             width: 100% !important; 
             height: 3em !important; 
             background-color: #262730 !important; 
             color: white !important;           
             border: 1px solid #464855 !important;
-            font-size: 0.8rem !important;
-            padding: 0px !important;
+            font-weight: bold !important;
         }}
 
-        .stAlert {{ background: linear-gradient(135deg, {bg_color} 0%, #1A1A1A 160%) !important; padding: 15px !important; }}
-        .stAlert h2 {{ font-size: 1.2rem !important; }}
+        .stAlert {{ 
+            background: linear-gradient(135deg, {bg_color} 0%, #1A1A1A 160%) !important; 
+            padding: 15px !important; 
+            border-radius: 12px !important;
+        }}
+        .stAlert h2 {{ font-size: 1.1rem !important; margin: 0px !important; }}
 
-        .insight-box {{ background-color: #ffffff; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0; margin-top: 5px; }}
-        .insight-text {{ color: #444; font-size: 0.75rem; line-height: 1.2; }}
+        .insight-box {{ 
+            background-color: #ffffff; 
+            padding: 10px; 
+            border-radius: 8px; 
+            border: 1px solid #e0e0e0; 
+            margin-top: 5px; 
+        }}
+        .insight-text {{ color: #444; font-size: 0.8rem; line-height: 1.3; }}
+        
+        /* Hide the header anchor icons */
+        .element-container h1, .element-container h2, .element-container h3 {{ margin-top: -10px !important; }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -73,29 +74,29 @@ st.sidebar.title("Settings")
 app_mode = st.sidebar.toggle("Detailed Mode", value=True)
 
 if app_mode:
-    ccr_spent = st.slider("CCR Spend", 0, 2500, value=int(st.session_state.get('saved_ccr', ideal_pace_val)), step=50)
+    # Compacted Slider
+    ccr_spent = st.slider("CCR QTD Spend", 0, 2500, value=int(st.session_state.get('saved_ccr', ideal_pace_val)), step=50)
     st.session_state['saved_ccr'] = ccr_spent
     cap_rem = 2500.0 - ccr_spent
     daily_allowance_pre = cap_rem / max(days_left, 1)
 
-    # ROW 1
+    # Reverted to stacked columns for iPhone stability
     c1, c2, c3 = st.columns(3)
     c1.button("+$10", on_click=update_amt, args=(10,))
     c2.button("+$50", on_click=update_amt, args=(50,))
     c3.button("+$100", on_click=update_amt, args=(100,))
     
-    # ROW 2
     m1, m2, m3 = st.columns(3)
     m1.button("-$10", on_click=update_amt, args=(-10,))
     m2.button("-$50", on_click=update_amt, args=(-50,))
     m3.button("RESET", on_click=update_amt, args=(0,))
     
-    amt = st.number_input("Amt ($)", value=float(st.session_state.purchase_amt), step=1.0)
+    amt = st.number_input("Purchase Amount ($)", value=float(st.session_state.purchase_amt), step=1.0)
     daily_allowance_post = max(0.0, cap_rem - amt) / max(days_left, 1)
 else:
     amt, cap_rem, daily_allowance_pre, daily_allowance_post = 0.0, 2500.0, 27.0, 27.0
 
-st.title("Optimizer")
+st.title("Card Optimizer")
 category = st.selectbox("Category", ["Online", "Amazon", "Gas", "Other"])
 
 # --- 5. ENGINE ---
@@ -104,10 +105,10 @@ def get_decision():
         if amt > cap_rem: return "BofA Premium Elite", "2.625%", "Over cap."
         days_impact = amt / max(daily_allowance_pre, 1)
         if days_impact > 4.0 and cap_rem < 1000:
-            return "BofA Premium Elite", "2.625%", f"Eats {days_impact:.1f} days."
+            return "BofA Premium Elite", "2.625%", f"Eats {days_impact:.1f} days budget."
         if daily_allowance_post < 10.0 and daily_allowance_pre > 10.0:
-             return "BofA Premium Elite", "2.625%", "$10/day floor hit."
-        return "BofA Customized Cash", "5.25%", "Optimal."
+             return "BofA Premium Elite", "2.625%", "$10/day floor reached."
+        return "BofA Customized Cash", "5.25%", "Optimal use of cap."
     if "Amazon" in category: return "Amazon Prime Visa", "5.0%", "Merchant rate."
     if "Gas" in category: return "Costco Visa", "4.0%", "Gas rate."
     return "BofA Premium Elite", "2.625%+", "Catch-all."
