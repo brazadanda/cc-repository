@@ -4,119 +4,145 @@ from datetime import date, timedelta
 # --- 1. CONFIG & STYLING ---
 st.set_page_config(page_title="Card Optimizer Pro", page_icon="⚖️")
 
-def apply_card_style(card_name):
+def apply_app_styles(card_name):
+    # Dynamic logic for the main Result card ONLY
     card_colors = {"Customized": "#D32F2F", "Premium": "#4A148C", "Amazon": "#283593", "Costco": "#1B5E20"}
-    bg_color = "#333333" 
+    res_bg = "#333333" 
     for key, color_code in card_colors.items():
         if key in card_name:
-            bg_color = color_code
+            res_bg = color_code
             break
+            
     st.markdown(f"""
         <style>
-        .stAlert {{ background: linear-gradient(135deg, {bg_color} 0%, #1A1A1A 160%) !important; border-radius: 15px !important; padding: 20px !important; border: none !important; }}
-        .stAlert p, .stAlert h1, .stAlert h2, .stAlert h3, .stAlert div {{ color: #FFFFFF !important; font-weight: 800 !important; text-transform: uppercase !important; text-align: center !important; }}
-        .stButton>button {{ 
-            width: 100%; border-radius: 8px; height: 3.5em; font-weight: bold; 
-            background-color: #262730 !important; color: #ffffff !important; border: 1px solid #464855 !important;
+        /* Main Result Card: High Contrast & Dynamic */
+        .stAlert {{ 
+            background: linear-gradient(135deg, {res_bg} 0%, #1A1A1A 160%) !important; 
+            border-radius: 15px !important; 
+            padding: 20px !important; 
+            border: none !important; 
         }}
-        .insight-box {{ background-color: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e0e0e0; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-        .insight-title {{ font-weight: bold; color: #1a1a1a; font-size: 0.8rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
-        .insight-text {{ color: #444; font-size: 0.85rem; line-height: 1.5; }}
-        .pace-marker {{ color: #888; font-size: 0.75rem; margin-top: -10px; margin-bottom: 15px; font-family: monospace; }}
+        .stAlert p, .stAlert h1, .stAlert h2, .stAlert h3 {{ 
+            color: #FFFFFF !important; 
+            font-weight: 800 !important; 
+            text-transform: uppercase !important; 
+            text-align: center !important; 
+        }}
+        
+        /* Neutral Status Plate: Uses Theme Variables for Auto Light/Dark Adaptivity */
+        .status-plate {{ 
+            background-color: rgba(128, 128, 128, 0.1); 
+            border: 1px solid rgba(128, 128, 128, 0.2); 
+            border-radius: 8px; 
+            padding: 12px; 
+            margin-top: 10px;
+        }}
+        .status-header {{ 
+            font-size: 0.7rem; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            opacity: 0.6;
+            margin-bottom: 6px;
+            letter-spacing: 0.05em;
+        }}
+        .status-val {{ 
+            font-size: 0.85rem; 
+            font-family: 'Source Code Pro', monospace; 
+            line-height: 1.6;
+        }}
+        
+        /* Standardized Buttons */
+        .stButton>button {{ width: 100%; border-radius: 8px; font-weight: bold; }}
         </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CALLBACK FUNCTIONS ---
+# --- 2. SIDEBAR SETTINGS ---
+st.sidebar.title("Settings")
+
+# DEFAULT: Simple Mode (False)
+app_mode = st.sidebar.toggle("Detailed Strategy Mode", value=False)
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Preferred Rewards")
+
+# DEFAULT: Platinum Honors (Index 3)
+tier = st.sidebar.selectbox(
+    "Active Tier", 
+    ["None", "Gold", "Platinum", "Plat Honors"], 
+    index=3
+)
+
+# Multiplier Logic
+multipliers = {"None": 1.0, "Gold": 1.25, "Platinum": 1.50, "Plat Honors": 1.75}
+m = multipliers[tier]
+
+# Rates based on tier
+r_online = 0.03 * m
+r_base = 0.015 * m
+r_travel = 0.02 * m
+
+# NEUTRAL SIDEBAR BOX (Adaptive to light/dark mode)
+st.sidebar.markdown(f"""
+    <div class="status-plate">
+        <div class="status-header">{tier} Yields</div>
+        <div class="status-val">
+            • Online: {r_online*100:.2f}%<br>
+            • Travel: {r_travel*100:.1f}%<br>
+            • Other: {r_base*100:.3f}%
+        </div>
+    </div>
+""", unsafe_allow_html=True)
+
+# --- 3. LOGIC & DATA ---
 if 'purchase_amt' not in st.session_state:
     st.session_state.purchase_amt = 0.0
 
-def update_amt(value):
-    if value == 0:
-        st.session_state.purchase_amt = 0.0
-    else:
-        st.session_state.purchase_amt += float(value)
+def update_amt(v):
+    if v == 0: st.session_state.purchase_amt = 0.0
+    else: st.session_state.purchase_amt += float(v)
 
-# --- 3. TIME & PACE LOGIC ---
+# Quarterly pacing logic
 today = date.today()
-q_start_month = ((today.month - 1) // 3) * 3 + 1
-q_start_date = date(today.year, q_start_month, 1)
-q_end_date = (date(today.year, q_start_month + 2, 1) + timedelta(days=32)).replace(day=1) - timedelta(days=1)
-days_total = (q_end_date - q_start_date).days + 1
-days_left = (q_end_date - today).days + 1
-ideal_pace_val = ((days_total - days_left) / days_total) * 2500
+q_start = date(today.year, ((today.month - 1) // 3) * 3 + 1, 1)
+q_end = (date(today.year, q_start.month + 2, 1) + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+days_rem = (q_end - today).days + 1
+pace = (( (q_end - q_start).days + 1 - days_rem) / ((q_end - q_start).days + 1)) * 2500
 
-# --- 4. UI INPUTS ---
-st.sidebar.title("Settings")
-app_mode = st.sidebar.toggle("Detailed Strategy Mode", value=True)
-
+# --- 4. MAIN INTERFACE ---
 if app_mode:
-    st.subheader("1. Quarterly CCR Cap Spend")
-    ccr_spent = st.slider("Total 5.25% Category Spend ($)", 0, 2500, value=int(st.session_state.get('saved_ccr', ideal_pace_val)), step=50)
-    st.markdown(f'<div class="pace-marker">Target: ${ideal_pace_val:.0f} | Days Remaining: {days_left}</div>', unsafe_allow_html=True)
-    st.session_state['saved_ccr'] = ccr_spent
-    cap_rem = 2500.0 - ccr_spent
-    daily_allowance_pre = cap_rem / max(days_left, 1)
-
-    st.subheader("2. New Purchase Amount")
+    st.subheader("Quarterly Tracking")
+    spent = st.slider("CCR Category Spend ($)", 0, 2500, value=int(st.session_state.get('s_ccr', pace)), step=50)
+    st.session_state['s_ccr'] = spent
+    rem = 2500.0 - spent
+    
+    st.subheader("New Purchase")
     c1, c2, c3 = st.columns(3)
-    c1.button("+$10", on_click=update_amt, args=(10,))
-    c2.button("+$50", on_click=update_amt, args=(50,))
-    c3.button("+$100", on_click=update_amt, args=(100,))
+    c1.button("+$50", on_click=update_amt, args=(50,))
+    c2.button("+$100", on_click=update_amt, args=(100,))
+    c3.button("RESET", on_click=update_amt, args=(0,))
     
-    m1, m2, m3 = st.columns(3)
-    m1.button("-$10", on_click=update_amt, args=(-10,))
-    m2.button("-$50", on_click=update_amt, args=(-50,))
-    m3.button("RESET", on_click=update_amt, args=(0,))
-    
-    amt = st.number_input("Amount ($)", value=float(st.session_state.purchase_amt), step=1.0)
-    daily_allowance_post = max(0.0, cap_rem - amt) / max(days_left, 1)
+    amt = st.number_input("Amount ($)", value=float(st.session_state.purchase_amt))
 else:
-    amt, cap_rem, daily_allowance_pre, daily_allowance_post = 0.0, 2500.0, 27.0, 27.0
+    amt, rem = 0.0, 2500.0
 
-# --- 5. CATEGORY SELECT ---
 st.title("Card Optimizer")
-category = st.selectbox("Select Purchase Category", [
-    "Online Shopping (General)", "Amazon.com / Whole Foods", 
-    "Gas Station / Fuel", "In-Store / Dining / Everything Else"
-])
-st.markdown("---")
+cat = st.selectbox("Category", ["Online Shopping", "Amazon.com", "Gas Station", "Dining / Travel / Other"])
 
-# --- 6. DECISION ENGINE ---
-def get_robust_decision():
-    if "Online" in category:
-        if amt > cap_rem:
-            return "BofA Premium Rewards Elite", "2.625%", "Purchase exceeds remaining 5.25% cap."
-        days_impact = amt / max(daily_allowance_pre, 1)
-        if days_impact > 4.0 and cap_rem < 1000:
-            return "BofA Premium Rewards Elite", "2.625%", f"Rationing: This eats {days_impact:.1f} days of budget."
-        if daily_allowance_post < 10.0 and daily_allowance_pre > 10.0:
-             return "BofA Premium Rewards Elite", "2.625%", "Protecting minimum daily allowance ($10/day)."
-        return "BofA Customized Cash Rewards", "5.25%", "Optimal use of remaining cap."
+# --- 5. DECISION ENGINE ---
+def decide():
+    if "Online" in cat:
+        if amt > rem or (app_mode and rem < 500): 
+            return "BofA Premium Rewards Elite", f"{r_base*100:.3f}%", "Cap preservation."
+        return "BofA Customized Cash", f"{r_online*100:.2f}%", "Max category yield."
+    
+    if "Amazon" in cat: return "Amazon Prime Visa", "5.0%", "Merchant specific."
+    if "Gas" in cat: return "Costco Anywhere Visa", "4.0%", "Uncapped gas."
+    if "Dining" in cat: return "BofA Premium Rewards Elite", f"{r_travel*100:.1f}%", f"{tier} Travel rate."
+    return "BofA Premium Rewards Elite", f"{r_base*100:.3f}%", "Best catch-all."
 
-    if "Amazon" in category: return "Amazon Prime Visa", "5.0%", "Uncapped merchant rate."
-    if "Gas" in category: return "Costco Anywhere Visa", "4.0%", "Dedicated gas rate."
-    return "BofA Premium Rewards Elite", "2.625%+", "Best catch-all rate."
-
-card, rate_str, reason = get_robust_decision()
-apply_card_style(card)
+card, rate, reason = decide()
+apply_app_styles(card)
 st.error(f"{card}")
 
-# --- 7. STRATEGY INSIGHT ---
 if app_mode:
-    try:
-        clean_rate = float(rate_str.replace('%', '').replace('+', '')) / 100
-    except:
-        clean_rate = 0.02625
-    is_ccr = "Customized Cash" in card
-    total_earned = (min(amt, cap_rem) * 0.0525) if is_ccr else (amt * clean_rate)
-    
-    st.markdown('<div class="insight-box"><div class="insight-title">Strategic Analysis</div><div class="insight-text">', unsafe_allow_html=True)
-    st.write(f"• **Yield:** This card earns **{rate_str}** (${total_earned:.2f}) cash back.")
-    if "Online" in category:
-        st.write(f"• **Rationing:** You have **${daily_allowance_pre:.2f}/day** remaining.")
-        if is_ccr:
-            st.write(f"• **Impact:** This purchase consumes **{amt / max(daily_allowance_pre, 1):.1f} days** of budget.")
-        else:
-            st.write(f"• **Cap Defense:** Using Elite card preserves **${cap_rem:.0f}** for future online buys.")
-    st.write(f"• **Verdict:** {reason}")
-    st.markdown('</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="insight-box"><div class="insight-text"><b>Tier:</b> {tier}<br><b>Yield:</b> {rate}<br><b>Reason:</b> {reason}</div></div>', unsafe_allow_html=True)
